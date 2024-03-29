@@ -37,7 +37,7 @@ impl PySupercluster {
         }
     }
 
-    fn load(&mut self, py: Python, points: Vec<&PyDict>) -> PyResult<()> {
+    fn load(&mut self, _py: Python, points: Vec<&PyDict>) -> PyResult<()> {
         let features: Vec<Feature> = points
             .into_iter()
             .map(|p| {
@@ -124,7 +124,7 @@ impl PySupercluster {
 }
 
 #[pymodule]
-fn pysupercluster(py: Python, m: &PyModule) -> PyResult<()> {
+fn pysupercluster(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_class::<PySupercluster>()?;
     Ok(())
 }
