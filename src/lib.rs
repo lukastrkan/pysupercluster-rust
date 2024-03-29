@@ -58,13 +58,15 @@ impl PySupercluster {
                     .extract::<&PyList>()?;
 
                 let latitude = coords.get_item(1).unwrap().extract::<f64>().unwrap();
-                let longitude = coords.get_item(0).unwrap().extract::<f64>().unwrap();
+                let longitude = coords.get_item(0).unwrap().extract::<f64>().unwrap();     
 
+                //hacky way to convert PyDict to json string
+                let json_properities = properties.to_string().replace("'", "\"");
                     
                 Ok(Feature {
-                    geometry: Some(Geometry::new(Point(vec![longitude, latitude]))),
+                    geometry: Some(Geometry::new(Point(vec![longitude, latitude]))),                                        
                     properties: Some(
-                        serde_json::from_str(&properties.to_string())
+                        serde_json::from_str(&json_properities)
                             .unwrap_or_else(|_| JsonObject::new()),
                     ),
                     ..Default::default()
@@ -79,16 +81,15 @@ impl PySupercluster {
 
     
 
-    fn get_clusters(&self, py: Python, bbox: (f64, f64, f64, f64), zoom: u8) -> PyResult<Vec<PyObject>> {
-        let clusters = self.inner.get_clusters([bbox.0, bbox.1, bbox.2, bbox.3], zoom);
+    fn get_clusters(&self, py: Python, bbox: [f64;4], zoom: u8) -> PyResult<Vec<PyObject>> {
+        let clusters = self.inner.get_clusters(bbox, zoom);
         let mut py_clusters = Vec::new();
         for cluster in clusters {
             let py_cluster = PyDict::new(py);
             if let Some(geometry) = &cluster.geometry {
                 let geometry_dict = PyDict::new(py);
-                geometry_dict.set_item("type", "Point")?;  // Directly set the type as "Point"
+                geometry_dict.set_item("type", "Point")?;
 
-                // Correctly handling geometry coordinates extraction based on geojson::Value variant
                 match &geometry.value {
                     geojson::Value::Point(coords) => {
                         geometry_dict.set_item("coordinates", coords)?;
