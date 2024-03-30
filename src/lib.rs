@@ -16,6 +16,7 @@ struct PySupercluster {
 #[pymethods]
 impl PySupercluster {
     #[new]
+    #[pyo3(signature = (min_zoom=0, max_zoom=16, min_points=2, radius=40.0, extent=512.0, node_size=64)]
     fn new(
         min_zoom: u8,
         max_zoom: u8,
@@ -37,6 +38,7 @@ impl PySupercluster {
         }
     }
 
+    #[pyo3(signature = (points)]
     fn load(&mut self, _py: Python, points: Vec<&PyDict>) -> PyResult<()> {
         let features: Vec<Feature> = points
             .into_iter()
@@ -80,7 +82,7 @@ impl PySupercluster {
     }
 
     
-
+    #[pyo3(signature = (bbox, zoom))]
     fn get_clusters(&self, py: Python, bbox: [f64;4], zoom: u8) -> PyResult<Vec<PyObject>> {
         let clusters = self.inner.get_clusters(bbox, zoom);
         let mut py_clusters = Vec::new();
