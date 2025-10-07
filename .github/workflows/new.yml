@@ -50,6 +50,8 @@ jobs:
           manylinux: auto
       - name: Build free-threaded wheels
         uses: PyO3/maturin-action@v1
+        env:
+          UNSAFE_PYO3_BUILD_FREE_THREADED: 1
         with:
           target: ${{ matrix.platform.target }}
           args: --release --out dist -i python3.13t
@@ -88,6 +90,8 @@ jobs:
           manylinux: musllinux_1_2
       - name: Build free-threaded wheels
         uses: PyO3/maturin-action@v1
+        env:
+          UNSAFE_PYO3_BUILD_FREE_THREADED: 1
         with:
           target: ${{ matrix.platform.target }}
           args: --release --out dist -i python3.13t
@@ -126,6 +130,8 @@ jobs:
           architecture: ${{ matrix.platform.target }}
       - name: Build free-threaded wheels
         uses: PyO3/maturin-action@v1
+        env:
+          UNSAFE_PYO3_BUILD_FREE_THREADED: 1
         with:
           target: ${{ matrix.platform.target }}
           args: --release --out dist -i python3.13t
@@ -158,6 +164,8 @@ jobs:
           sccache: ${{ !startsWith(github.ref, 'refs/tags/') }}
       - name: Build free-threaded wheels
         uses: PyO3/maturin-action@v1
+        env:
+          UNSAFE_PYO3_BUILD_FREE_THREADED: 1
         with:
           target: ${{ matrix.platform.target }}
           args: --release --out dist -i python3.13t
