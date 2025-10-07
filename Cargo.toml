@@ -10,6 +10,6 @@ crate-type = ["cdylib"]
 
 [dependencies]
 geojson = "0.24.2"
-pyo3 = "0.21.2"
+pyo3 = "0.22.5"
 serde_json = "1.0.145"
 supercluster = "=1.0.16"

@@ -3,8 +3,8 @@ use geojson::Geometry;
 use geojson::JsonObject;
 use geojson::Value::Point;
 use pyo3::prelude::*;
-use pyo3::types::PyDict;
-use pyo3::types::PyList;
+use pyo3::types::{PyDict, PyList, PyModule};
+use pyo3::{Bound, Py};
 use supercluster::Options;
 use supercluster::Supercluster;
 
@@ -39,36 +39,28 @@ impl PySupercluster {
     }
 
     #[pyo3(signature = (points))]
-    fn load(&mut self, _py: Python, points: Vec<&PyDict>) -> PyResult<()> {
+    fn load(&mut self, py: Python, points: Vec<PyObject>) -> PyResult<()> {
         let features: Vec<Feature> = points
             .into_iter()
-            .map(|p| {
-                let geometry = p
-                    .get_item("geometry")
-                    .expect("Geometry not found")
-                    .unwrap()
-                    .extract::<&PyDict>()?;
-                let properties = p
-                    .get_item("properties")
-                    .expect("Properties not found")
-                    .unwrap()
-                    .extract::<&PyDict>()?;
-                let coords = geometry
-                    .get_item("coordinates")
-                    .expect("Coordinates not found")
-                    .unwrap()
-                    .extract::<&PyList>()?;
+            .map(|p_obj| {
+                let p_any = p_obj.bind(py);
 
-                let latitude = coords.get_item(1).unwrap().extract::<f64>().unwrap();
-                let longitude = coords.get_item(0).unwrap().extract::<f64>().unwrap();     
+                let geometry_any = p_any.get_item("geometry")?;
+                let properties_any = p_any.get_item("properties")?;
 
-                //hacky way to convert PyDict to json string
-                let json_properities = properties.to_string().replace("'", "\"");
-                    
+                let coords_any = geometry_any.get_item("coordinates")?;
+                let coords = coords_any.downcast::<PyList>()?;
+
+                let latitude: f64 = coords.get_item(1)?.extract()?;
+                let longitude: f64 = coords.get_item(0)?.extract()?;
+
+                // Convert properties to json string (simple approach)
+                let json_properties = properties_any.to_string().replace("'", "\"");
+
                 Ok(Feature {
-                    geometry: Some(Geometry::new(Point(vec![longitude, latitude]))),                                        
+                    geometry: Some(Geometry::new(Point(vec![longitude, latitude]))),
                     properties: Some(
-                        serde_json::from_str(&json_properities)
+                        serde_json::from_str(&json_properties)
                             .unwrap_or_else(|_| JsonObject::new()),
                     ),
                     ..Default::default()
@@ -81,40 +73,39 @@ impl PySupercluster {
         Ok(())
     }
 
-    
     #[pyo3(signature = (bbox, zoom))]
     fn get_clusters(&self, py: Python, bbox: [f64;4], zoom: u8) -> PyResult<Vec<PyObject>> {
         let clusters = self.inner.get_clusters(bbox, zoom);
         let mut py_clusters = Vec::new();
         for cluster in clusters {
-            let py_cluster = PyDict::new(py);
+            let py_cluster = PyDict::new_bound(py);
             if let Some(geometry) = &cluster.geometry {
-                let geometry_dict = PyDict::new(py);
+                let geometry_dict = PyDict::new_bound(py);
                 geometry_dict.set_item("type", "Point")?;
 
                 match &geometry.value {
                     geojson::Value::Point(coords) => {
                         geometry_dict.set_item("coordinates", coords)?;
                     },
-                    _ => return Err(PyErr::new::<pyo3::exceptions::PyValueError, _>("Expected point geometry")),
+                    _ => return Err(pyo3::exceptions::PyValueError::new_err("Expected point geometry")),
                 }
-                
+
                 py_cluster.set_item("geometry", geometry_dict)?;
             }
 
             if let Some(properties) = &cluster.properties {
-                let properties_dict = PyDict::new(py);
+                let properties_dict = PyDict::new_bound(py);
                 for (key, value) in properties {
                     let py_value = json_to_pyobject(py, value);
                     properties_dict.set_item(key, py_value)?;
                 }
                 py_cluster.set_item("properties", properties_dict)?;
             } else {
-                py_cluster.set_item("properties", PyDict::new(py))?;
+                py_cluster.set_item("properties", PyDict::new_bound(py))?;
             }
 
             py_cluster.set_item("type", "Feature")?;
-            py_clusters.push(py_cluster.to_object(py));
+            py_clusters.push(py_cluster.unbind().into_py(py));
         }
         Ok(py_clusters)
     }
@@ -126,7 +117,7 @@ impl PySupercluster {
 }
 
 #[pymodule]
-fn pysupercluster(_py: Python, m: &PyModule) -> PyResult<()> {
+fn pysupercluster(m: &Bound<PyModule>) -> PyResult<()> {
     m.add_class::<PySupercluster>()?;
     Ok(())
 }
@@ -146,20 +137,20 @@ fn json_to_pyobject(py: Python, value: &serde_json::Value) -> PyObject {
         },
         serde_json::Value::String(s) => s.into_py(py),
         serde_json::Value::Array(arr) => {
-            let py_list = PyList::empty(py);
+            let py_list = PyList::empty_bound(py);
             for item in arr {
                 let py_item = json_to_pyobject(py, item);
                 py_list.append(py_item).unwrap();
             }
-            py_list.into()
+            py_list.unbind().into_py(py)
         },
         serde_json::Value::Object(obj) => {
-            let py_dict = PyDict::new(py);
+            let py_dict = PyDict::new_bound(py);
             for (k, v) in obj {
                 let py_val = json_to_pyobject(py, v);
                 py_dict.set_item(k, py_val).unwrap();
             }
-            py_dict.into()
+            py_dict.unbind().into_py(py)
         },
     }
 }
