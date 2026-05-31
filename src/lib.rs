@@ -78,9 +78,9 @@ impl PySupercluster {
         let clusters = self.inner.get_clusters(bbox, zoom);
         let mut py_clusters = Vec::new();
         for cluster in clusters {
-            let py_cluster = PyDict::new_bound(py);
+            let py_cluster = PyDict::new(py);
             if let Some(geometry) = &cluster.geometry {
-                let geometry_dict = PyDict::new_bound(py);
+                let geometry_dict = PyDict::new(py);
                 geometry_dict.set_item("type", "Point")?;
 
                 match &geometry.value {
@@ -94,14 +94,14 @@ impl PySupercluster {
             }
 
             if let Some(properties) = &cluster.properties {
-                let properties_dict = PyDict::new_bound(py);
+                let properties_dict = PyDict::new(py);
                 for (key, value) in properties {
                     let py_value = json_to_pyobject(py, value);
                     properties_dict.set_item(key, py_value)?;
                 }
                 py_cluster.set_item("properties", properties_dict)?;
             } else {
-                py_cluster.set_item("properties", PyDict::new_bound(py))?;
+                py_cluster.set_item("properties", PyDict::new(py))?;
             }
 
             py_cluster.set_item("type", "Feature")?;
@@ -137,7 +137,7 @@ fn json_to_pyobject(py: Python, value: &serde_json::Value) -> PyObject {
         },
         serde_json::Value::String(s) => s.into_py(py),
         serde_json::Value::Array(arr) => {
-            let py_list = PyList::empty_bound(py);
+            let py_list = PyList::empty(py);
             for item in arr {
                 let py_item = json_to_pyobject(py, item);
                 py_list.append(py_item).unwrap();
@@ -145,7 +145,7 @@ fn json_to_pyobject(py: Python, value: &serde_json::Value) -> PyObject {
             py_list.unbind().into_py(py)
         },
         serde_json::Value::Object(obj) => {
-            let py_dict = PyDict::new_bound(py);
+            let py_dict = PyDict::new(py);
             for (k, v) in obj {
                 let py_val = json_to_pyobject(py, v);
                 py_dict.set_item(k, py_val).unwrap();
